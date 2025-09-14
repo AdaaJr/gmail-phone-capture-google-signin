@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Gmail Phone Capture \u2014 Google Sign-In (Sheets)",
-  "version": "2.0.0",
-  "description": "Extrait des num\u00e9ros dans Gmail, se connecte avec Google (OAuth) et enregistre directement dans Google Sheets. Filtres inclus.",
+  "name": "Gmail Phone Capture \u2014 Google Sign-In (Sheets) PRO",
+  "version": "2.1.0",
+  "description": "Gmail \u2192 extraction num\u00e9ros \u2192 Google Sign-In (OAuth) \u2192 Google Sheets (d\u00e9dup raw\u2192phones). Filtres + presets + UX.",
   "permissions": [
     "identity",
     "storage",

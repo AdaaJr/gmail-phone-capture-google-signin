@@ -5,11 +5,16 @@
 
   let lastToken = "";
 
-  function normalize(raw) {
-    const cleaned = (raw || "").replace(E164_CLEAN, "");
-    if ((cleaned.match(/\d/g) || []).length < 8) return null;
-    if (!cleaned.startsWith("+") && /^0\d{9}$/.test(cleaned)) return "+33" + cleaned.slice(1);
-    return cleaned.startsWith("+") ? cleaned : cleaned;
+  function normalizeIntl(raw) {
+    const s = (raw || '').replace(E164_CLEAN, '');
+    const digits = (s.match(/\d/g) || []).length;
+    if (digits < 8) return null;
+    if (s.startsWith('+')) return s;
+    // Heuristiques simple FR/BE/CH (à adapter selon ton public)
+    if (/^0\d{9}$/.test(s)) return '+33' + s.slice(1);         // FR
+    if (/^0\d{8}$/.test(s)) return '+32' + s.slice(1);         // BE exemple
+    if (/^0\d{8,9}$/.test(s)) return '+41' + s.slice(1);       // CH exemple
+    return s;
   }
 
   function meta() {
@@ -30,6 +35,7 @@
   }
 
   function matchFilters(meta, filters) {
+    if (!filters) return true;
     const s = (meta.subject || "").toLowerCase();
     const f = (meta.from || "").toLowerCase();
     const b = (meta.text || "").toLowerCase();
@@ -68,7 +74,7 @@
     const m = meta();
     if (!matchFilters(m, filters)) return;
     const raw = (m.text || "").match(PHONE_REGEX) || [];
-    const phones = dedupe(raw.map(normalize));
+    const phones = dedupe(raw.map(normalizeIntl));
     if (phones.length === 0) return;
     chrome.runtime.sendMessage({ type: "APPEND_SHEET", payload: {
       subject: m.subject, from: m.from, phones, threadUrl: location.href, capturedAt: new Date().toISOString()
@@ -85,14 +91,13 @@
   obs.observe(document.documentElement, { childList: true, subtree: true });
   setTimeout(scan, 1800);
 
-  // Allow testing from popup/options
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg && msg.type === "TEST_MATCH") {
       (async () => {
         const { filters } = await loadFilters();
         const m = meta();
         const match = matchFilters(m, filters || {});
-        const phones = dedupe(((m.text || "").match(PHONE_REGEX) || []).map(normalize));
+        const phones = dedupe(((m.text || "").match(PHONE_REGEX) || []).map(normalizeIntl));
         sendResponse({ ok: true, meta: m, match, phones });
       })();
       return true;

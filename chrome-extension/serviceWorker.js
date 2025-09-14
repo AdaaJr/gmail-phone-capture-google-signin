@@ -1,8 +1,8 @@
-// serviceWorker.js — Google OAuth (launchWebAuthFlow) + Sheets append
+// serviceWorker.js — Google OAuth + Sheets append to raw!A:E and dedup via phones!A1=UNIQUE(raw!A:E)
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
-const GOOGLE_TOKENINFO = "https://www.googleapis.com/oauth2/v3/tokeninfo";
-const SHEETS_APPEND = (id) => `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/phones!A:E:append?valueInputOption=RAW`;
+const SHEETS_APPEND = (id) => `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/raw!A:E:append?valueInputOption=RAW`;
 const SHEETS_CREATE = "https://sheets.googleapis.com/v4/spreadsheets";
+const SHEETS_VALUES_UPDATE = (id, range) => `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
 
 async function getConfig() {
   const s = await chrome.storage.sync.get(["googleClientId", "sheetId", "enabled", "scopes"]);
@@ -54,14 +54,32 @@ async function appendToSheet(rows) {
 
 async function createSpreadsheet(title="Gmail Phone Capture") {
   const token = await getValidToken();
+  // Create spreadsheet with two sheets: raw and phones
   const res = await fetch(SHEETS_CREATE, {
     method: "POST",
     headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ properties: { title }, sheets: [{ properties: { title: "phones" } }] })
+    body: JSON.stringify({
+      properties: { title },
+      sheets: [
+        { properties: { title: "raw" } },
+        { properties: { title: "phones" } }
+      ]
+    })
   });
   if (!res.ok) throw new Error("Sheets create error: " + await res.text());
   const data = await res.json();
   const id = data.spreadsheetId;
+  // Set header + UNIQUE formula in phones!A1
+  const setHeaders = await fetch(SHEETS_VALUES_UPDATE(id, "phones!A1:E1"), {
+    method: "PUT",
+    headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ values: [["timestamp","from","subject","phone","threadUrl"]] })
+  });
+  const setFormula = await fetch(SHEETS_VALUES_UPDATE(id, "phones!A2"), {
+    method: "PUT",
+    headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ values: [["=UNIQUE(raw!A:E)"]] })
+  });
   await chrome.storage.sync.set({ sheetId: id });
   return id;
 }

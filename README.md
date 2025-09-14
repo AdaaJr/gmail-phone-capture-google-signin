@@ -1,64 +1,42 @@
-# Gmail Phone Capture — **Google Sign-In (Sheets)** — Chrome Extension (MV3)
 
-Extension qui lit les emails ouverts sur **Gmail** → extrait les **numéros de téléphone** → se **connecte à Google** (OAuth) → **écrit directement** dans **Google Sheets**.  
-✅ **Aucun serveur / webhook** à héberger. Tout passe par ton **compte Google** via *Sign in with Google*.
+![Build](https://img.shields.io/github/actions/workflow/status/AdaaJr/gmail-phone-capture-google-signin/release.yml?branch=main&label=Build)
+![Release](https://img.shields.io/github/v/release/AdaaJr/gmail-phone-capture-google-signin?display_name=tag&label=Extension)
 
-## ✨ Fonctionnalités
-- **Sign in with Google** (OAuth) via l’extension : stockage du token (temporaire) en local.
-- **Google Sheets API** : crée ou met à jour une feuille, écrit dans l’onglet `phones`.
-- **Filtres** : sujet (mots-clés & regex), expéditeur (emails/domaines), corps (mots-clés & regex), ignorer Re/Fwd.
-- **UX intégrée** : Popup (Activer / Sign-in / Créer Sheet / Test), Options (OAuth, Sheet, Filtres).
-- **Aucune API externe** : uniquement les APIs Google accessibles via ton compte.
+# Gmail Phone Capture — Google Sign-In (Sheets) **PRO** — Chrome MV3
 
----
+Gmail → extraction de **numéros de téléphone** → **Sign in with Google** → **Google Sheets**.  
+Dédup automatique : l’extension écrit dans **raw!A:E** et l’onglet **phones** affiche **=UNIQUE(raw!A:E)**.
 
-## 🧰 Prérequis Google Cloud (4 min)
-1. Va sur **Google Cloud Console** → **APIs & Services** → **Enable APIs** : active **Google Sheets API**.
-2. **Credentials** → **Create credentials** → **OAuth client ID** → type **Web application**.
-3. Dans **Authorized redirect URIs**, ajoute :  
-   `https://<extension-id>.chromiumapp.org/`  
-   *(tu récupères `<extension-id>` dans chrome://extensions après avoir chargé l’extension)*
-4. Récupère le **Client ID** (`...apps.googleusercontent.com`). Tu le colleras dans **Options → Google OAuth**.
+## ✨ Nouveautés (PRO)
+- **Dédup** automatique (raw → phones=UNIQUE)
+- **Presets** de filtres (Devis/Facture, RDV, Support)
+- **Normalisation multi-pays** (FR +33, BE +32, CH +41 — heuristiques)
+- UX complète : **Popup** (Sign-in, Create Sheet, Test) + **Options** (OAuth, Sheets, Filtres)
 
-Scopes nécessaires (par défaut) :  
-`https://www.googleapis.com/auth/spreadsheets`
+## ⚡ Installation rapide
+1) `chrome://extensions` → Developer mode → **Load unpacked** → `chrome-extension/`
+2) Google Cloud Console → activer **Google Sheets API**
+3) Créer **OAuth client ID** (type *Web application*), ajouter redirect URI :
+   ```
+   https://<extension-id>.chromiumapp.org/
+   ```
+4) Dans **Options → Google OAuth** : coller le **Client ID**
+5) **Popup** : bouton **Se connecter Google** puis **Créer Sheet** (crée `raw` + `phones`)
+6) **Options → Filtres** : configure et **Enregistrer**
+7) Ouvre un mail → **Popup → Tester** (match + phones) → lignes ajoutées dans **raw**
 
----
+## 🧠 Comment ça marche (dédup)
+- L’extension **append** dans `raw!A:E` : `timestamp | from | subject | phone | threadUrl`
+- L’onglet `phones` a `A1:E1` en entêtes et en `A2`: `=UNIQUE(raw!A:E)`
+- Tu peux filtrer/classer/partager l’onglet `phones` sans toucher aux données brutes
 
-## 🚀 Installation
-1. Chrome → `chrome://extensions` → **Developer mode** → **Load unpacked** → dossier `chrome-extension/`.
-2. Clique l’icône → **Options** :
-   - **Google OAuth Client ID** : colle le client ID (étape ci-dessus).
-   - Vérifie le scope (par défaut Sheets).
-   - **Spreadsheet ID** : laisse vide pour le moment (tu peux créer un Sheet depuis le Popup).
-   - **Enregistrer**.
-3. Dans le **Popup** :
-   - **Se connecter Google** → valide les consentements.
-   - **Créer Sheet** → donne un titre → copie l’ID affiché (ou va dans l’URL du Sheet) et colle-le dans **Options → Spreadsheet ID** (ou laisse-le enregistré automatiquement si retour OK).
-4. Ouvre Gmail, clique un email, assure-toi que **Activer** est coché.
+## 🔐 Scopes OAuth
+- `https://www.googleapis.com/auth/spreadsheets`
 
----
-
-## 🧪 Tester
-- **Popup → Tester** : sur un email ouvert, tu vois `match`, `phones` et les méta (subject/from).
-- À chaque détection, l’extension envoie des lignes dans **phones!A:E** :  
-  `timestamp | from | subject | phone | threadUrl`.
-
----
-
-## 🔧 Personnalisation
-- Normalisation FR `+33` : `contentScript.js` → `normalize()`.
-- Regex des numéros : `PHONE_REGEX`.
-- Filtres complets dans **Options** : mots-clés / regex / domaines autorisés / ignorer Re/Fwd.
-
----
-
-## 🛡️ Confidentialité
-- L’extension ne lit que `mail.google.com`.
-- Les données partent **uniquement vers l’API Google Sheets** avec **ton compte**.
-- Le token est stocké localement et expire (OAuth standard). Relance *Sign in* au besoin.
-
----
+## 🛠️ Personnalisation
+- Regex numéros : `contentScript.js` → `PHONE_REGEX`
+- Normalisation : `normalizeIntl()`
+- Filtres : Options (mots-clés / regex / domaines) + **presets**
 
 ## 📂 Arborescence
 ```
@@ -71,7 +49,5 @@ chrome-extension/
   icons/
 README.md
 ```
-
----
 
 **Auteur : Wali Diabi — 2025**
