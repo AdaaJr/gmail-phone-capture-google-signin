@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Gmail Phone Capture \u2014 Google Sign-In (Sheets)",
+  "version": "2.0.0",
+  "description": "Extrait des num\u00e9ros dans Gmail, se connecte avec Google (OAuth) et enregistre directement dans Google Sheets. Filtres inclus.",
+  "permissions": [
+    "identity",
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://mail.google.com/*",
+    "https://accounts.google.com/*",
+    "https://www.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "serviceWorker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://mail.google.com/*"
+      ],
+      "js": [
+        "contentScript.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "GPC \u2014 Sign in"
+  },
+  "options_page": "options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

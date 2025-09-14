@@ -1,0 +1,149 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>GPC — Options</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; max-width: 980px; margin: 1.5rem auto; }
+      h1 { margin-bottom: .2rem }
+      label { display:block; margin:.6rem 0 .25rem; font-weight:600;}
+      input[type="text"] { width:100%; padding:.5rem; }
+      .row { display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+      .full { grid-column: 1 / -1; }
+      .muted { color:#666; font-size:.9rem }
+      .card { border:1px solid #ddd; padding:1rem; border-radius:8px; margin: 1rem 0; background:#fafafa }
+      button { padding:.5rem .8rem }
+    </style>
+  </head>
+  <body>
+    <h1>Gmail Phone Capture — Google Sign-In</h1>
+    <p class="muted">Connexion Google pour écrire directement dans Sheets (sans webhook). Configure le <strong>Client ID</strong> OAuth et l’ID du Sheet.</p>
+
+    <div class="card">
+      <h2>Google OAuth</h2>
+      <label>Google OAuth Client ID</label>
+      <input id="googleClientId" type="text" placeholder="1234567890-abc.apps.googleusercontent.com" />
+      <label>Scopes (laisser par défaut)</label>
+      <input id="scopes" type="text" value="https://www.googleapis.com/auth/spreadsheets" />
+      <p class="muted">
+        Ajoute l'URL de redirection autorisée suivante dans la Console Google Cloud, une fois l'extension chargée :<br/>
+        <code>https://<strong><span id="extid">[extension-id]</span></strong>.chromiumapp.org/</code>
+      </p>
+      <button id="saveAuth">Enregistrer</button>
+      <span id="authStatus" class="muted"></span>
+    </div>
+
+    <div class="card">
+      <h2>Google Sheets</h2>
+      <label>Spreadsheet ID</label>
+      <input id="sheetId" type="text" placeholder="1AbCDefGhI... (depuis l'URL du Sheet)" />
+      <button id="saveSheet">Enregistrer</button>
+      <button id="createSheet">Créer un nouveau Sheet</button>
+      <span id="sheetStatus" class="muted"></span>
+      <p class="muted">La feuille attend un onglet <code>phones</code> avec colonnes: timestamp, from, subject, phone, threadUrl.</p>
+    </div>
+
+    <div class="card">
+      <h2>Filtres</h2>
+      <div class="row">
+        <div>
+          <label>Sujet — contient (virgules)</label>
+          <input id="subjectIncludes" type="text" placeholder="Devis, Facture, Client" />
+          <label class="muted"><input id="requireAllSubject" type="checkbox" /> Exiger tous les mots-clés</label>
+        </div>
+        <div>
+          <label>Sujet — regex</label>
+          <input id="subjectRegex" type="text" placeholder="^(Devis|Facture)\\b" />
+        </div>
+        <div>
+          <label>Expéditeur — contient (emails)</label>
+          <input id="fromIncludes" type="text" placeholder="client@exemple.com, contact@site.fr" />
+        </div>
+        <div>
+          <label>Domaines autorisés (whitelist)</label>
+          <input id="fromDomainWhitelist" type="text" placeholder="entreprise.fr, gmail.com" />
+        </div>
+        <div class="full">
+          <label>Corps — contient (virgules)</label>
+          <input id="bodyIncludes" type="text" placeholder="téléphone, mobile, contact" />
+          <label class="muted"><input id="requireAllBody" type="checkbox" /> Exiger tous les mots-clés</label>
+        </div>
+        <div class="full">
+          <label>Corps — regex</label>
+          <input id="bodyRegex" type="text" placeholder="num(é|e)ro\\s+de\\s+t(é|e)l(é|e)phone" />
+        </div>
+        <div class="full">
+          <label class="muted"><input id="ignoreReplies" type="checkbox" checked /> Ignorer Re:</label>
+          <label class="muted"><input id="ignoreForwards" type="checkbox" checked /> Ignorer Fwd:</label>
+        </div>
+      </div>
+      <button id="saveFilters">Enregistrer les filtres</button>
+      <span id="filtersStatus" class="muted"></span>
+    </div>
+
+    <script>
+      document.getElementById('extid').textContent = chrome.runtime.id;
+
+      function toList(v){ return v.split(',').map(x=>x.trim()).filter(Boolean); }
+
+      async function load() {
+        const s = await chrome.storage.sync.get(["googleClientId","scopes","sheetId","filters"]);
+        document.getElementById('googleClientId').value = s.googleClientId || "";
+        document.getElementById('scopes').value = (s.scopes || ["https://www.googleapis.com/auth/spreadsheets"]).toString();
+        document.getElementById('sheetId').value = s.sheetId || "";
+        const f = s.filters || {};
+        document.getElementById('subjectIncludes').value = (f.subjectIncludes||[]).join(", ");
+        document.getElementById('subjectRegex').value = f.subjectRegex || "";
+        document.getElementById('requireAllSubject').checked = !!f.requireAllSubject;
+        document.getElementById('fromIncludes').value = (f.fromIncludes||[]).join(", ");
+        document.getElementById('fromDomainWhitelist').value = (f.fromDomainWhitelist||[]).join(", ");
+        document.getElementById('bodyIncludes').value = (f.bodyIncludes||[]).join(", ");
+        document.getElementById('bodyRegex').value = f.bodyRegex || "";
+        document.getElementById('requireAllBody').checked = !!f.requireAllBody;
+        document.getElementById('ignoreReplies').checked = f.ignoreReplies ?? true;
+        document.getElementById('ignoreForwards').checked = f.ignoreForwards ?? true;
+      }
+      load();
+
+      document.getElementById('saveAuth').addEventListener('click', async ()=>{
+        await chrome.storage.sync.set({
+          googleClientId: document.getElementById('googleClientId').value.trim(),
+          scopes: document.getElementById('scopes').value.split(/\s+/).filter(Boolean)
+        });
+        document.getElementById('authStatus').textContent = "Enregistré ✔️";
+        setTimeout(()=> document.getElementById('authStatus').textContent="", 1500);
+      });
+
+      document.getElementById('saveSheet').addEventListener('click', async ()=>{
+        await chrome.storage.sync.set({ sheetId: document.getElementById('sheetId').value.trim() });
+        document.getElementById('sheetStatus').textContent = "Enregistré ✔️";
+        setTimeout(()=> document.getElementById('sheetStatus').textContent="", 1500);
+      });
+
+      document.getElementById('createSheet').addEventListener('click', async ()=>{
+        const title = prompt("Titre du Google Sheet ?", "Gmail Phone Capture");
+        if (!title) return;
+        const res = await chrome.runtime.sendMessage({ type:"SHEETS_CREATE", title });
+        document.getElementById('sheetStatus').textContent = res && res.ok ? ("Sheet créé: " + res.sheetId) : ("Erreur: " + (res && res.error));
+      });
+
+      document.getElementById('saveFilters').addEventListener('click', async ()=>{
+        const filters = {
+          subjectIncludes: toList(document.getElementById('subjectIncludes').value),
+          subjectRegex: document.getElementById('subjectRegex').value.trim(),
+          requireAllSubject: document.getElementById('requireAllSubject').checked,
+          fromIncludes: toList(document.getElementById('fromIncludes').value),
+          fromDomainWhitelist: toList(document.getElementById('fromDomainWhitelist').value),
+          bodyIncludes: toList(document.getElementById('bodyIncludes').value),
+          bodyRegex: document.getElementById('bodyRegex').value.trim(),
+          requireAllBody: document.getElementById('requireAllBody').checked,
+          ignoreReplies: document.getElementById('ignoreReplies').checked,
+          ignoreForwards: document.getElementById('ignoreForwards').checked
+        };
+        await chrome.storage.sync.set({ filters });
+        document.getElementById('filtersStatus').textContent = "Filtres enregistrés ✔️";
+        setTimeout(()=> document.getElementById('filtersStatus').textContent="", 1500);
+      });
+    </script>
+  </body>
+</html>

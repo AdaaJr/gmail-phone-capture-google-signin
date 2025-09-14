@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8"/><title>GPC — Google Sign-In</title>
+    <style>
+      body{font-family:system-ui;min-width:280px;margin:0;padding:12px}
+      .row{display:flex;align-items:center;justify-content:space-between;margin:.5rem 0}
+      .muted{color:#666}
+      pre{white-space:pre-wrap;background:#f7f7f7;padding:8px;border-radius:6px;max-height:160px;overflow:auto}
+      button{padding:.4rem .7rem}
+    </style>
+  </head>
+  <body>
+    <div class="row">
+      <label><input id="enabled" type="checkbox"> Activer</label>
+      <a id="openOptions" href="#">Options</a>
+    </div>
+    <div class="row">
+      <button id="signin">Se connecter Google</button>
+      <button id="createSheet">Créer Sheet</button>
+    </div>
+    <div class="row muted"><span id="status"></span></div>
+    <div>
+      <button id="test">Tester sur l'onglet Gmail</button>
+    </div>
+    <pre id="out"></pre>
+    <script>
+      async function init(){
+        const s = await chrome.storage.sync.get(["enabled"]);
+        document.getElementById('enabled').checked = s.enabled ?? true;
+      }
+      document.getElementById('enabled').addEventListener('change', async (e)=>{
+        await chrome.storage.sync.set({ enabled: e.target.checked });
+        document.getElementById('status').textContent = e.target.checked ? "Actif" : "Désactivé";
+      });
+      document.getElementById('openOptions').addEventListener('click', ()=> chrome.runtime.openOptionsPage());
+      document.getElementById('signin').addEventListener('click', async ()=>{
+        const res = await chrome.runtime.sendMessage({ type:"OAUTH_SIGNIN" });
+        document.getElementById('status').textContent = res && res.ok ? "Connecté ✅" : ("Erreur : " + (res && res.error));
+      });
+      document.getElementById('createSheet').addEventListener('click', async ()=>{
+        const title = prompt("Titre du Google Sheet ?", "Gmail Phone Capture");
+        if (!title) return;
+        const res = await chrome.runtime.sendMessage({ type:"SHEETS_CREATE", title });
+        document.getElementById('status').textContent = res && res.ok ? ("Sheet créé: " + res.sheetId) : ("Erreur: " + (res && res.error));
+      });
+      document.getElementById('test').addEventListener('click', async ()=>{
+        const [tab] = await chrome.tabs.query({active:true,currentWindow:true});
+        if (!tab || !tab.id){ document.getElementById('out').textContent="Ouvre un email dans Gmail."; return; }
+        const res = await chrome.tabs.sendMessage(tab.id, { type: "TEST_MATCH" });
+        document.getElementById('out').textContent = res && res.ok ? JSON.stringify(res,null,2) : "Impossible (ouvre un email).";
+      });
+      init();
+    </script>
+  </body>
+</html>
